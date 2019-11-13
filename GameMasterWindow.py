@@ -4,9 +4,13 @@ import tkinter as tk
 from tkinter import ttk as ttk
 from Classes import *
 from dotmap import DotMap
+from DataBase import db
+import random
 
-g_question = "Name a chore that people put off because they have work the next day:"
-g_answers = [SurveyAnswer("Take out trash",35), SurveyAnswer("Dishes",30), SurveyAnswer("Vacuum",18), SurveyAnswer("Laundry",6), SurveyAnswer("Clean bathroom",4), SurveyAnswer("Dust",3)]
+g_question = random.choice(list(db.keys()))
+g_answers = db[g_question]
+print('Prompt: ' + g_question)
+print('Responses: ' + str(g_answers))
 g_contestants = ["BASE","DEP","ES","ENS","STACK","SIGMA"]   
 
 master = tk.Tk()
@@ -14,8 +18,8 @@ master = tk.Tk()
 quest = tk.Label(master, text=g_question, font=("Times",15)).grid(row=1, columnspan=10)
 # Populate the survey answers so that Game Master knows which ones are available
 for resp in range(len(g_answers)):
-    tk.Label(master, text=g_answers[resp].count).grid(column=0,row=2+resp)
-    tk.Label(master, text=g_answers[resp].response).grid(column=1,row=2+resp)
+    tk.Label(master, text=g_answers[resp][1]).grid(column=0,row=2+resp)
+    tk.Label(master, text=g_answers[resp][0]).grid(column=1,row=2+resp)
 
 # Populate the playerbase
 for cont in range(len(g_contestants)):
