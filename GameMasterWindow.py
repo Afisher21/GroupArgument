@@ -1,8 +1,113 @@
 #!python3
 import tkinter as tk
-from tkinter import ttk as ttk
 from Classes import *
 from dotmap import DotMap
+
+def ValidateWindowArgs(**kwargs):
+    if 'master' not in kwargs or kwargs['master'] is None:
+        raise Exception("'master' tk window not provided for adding objects to!")
+    if 'contestants' not in kwargs or kwargs['contestants'] is None or len(kwargs['contestants']) < 2:
+        raise Exception("'contestantss' is invalid! Please provide a list of at least 2 names for a valid game.")
+    if 'question' not in kwargs or kwargs['question'] is None or kwargs['question'] is '':
+        raise Exception("'question' is invalid! Please provide a question for the contestants to respond to.")
+    if 'answers' not in kwargs or kwargs['answers'] is None or len(kwargs['answers']) < 1:
+        raise Exception("'answers' is invalid! Please provide the expected survey results so contestants can have something to be scored against.")
+    if 'offsets' not in kwargs or kwargs['offsets'] is None:
+        raise Exception("'offsets' is invalid! Please provide an offset table for where to draw the various elements. See 'main' function for example")
+    offsets = kwargs['offsets']
+    if (
+            'DisplayCount' not in offsets or
+            'DisplayAnswer' not in offsets or
+            'PlayerStart' not in offsets or
+            'PlayerEnd' not in offsets or
+            'SubmitButton' not in offsets or
+            'RoundMultiplier' not in offsets or
+            'Question' not in offsets or 
+            'Names' not in offsets or
+            'AnswerBegin' not in offsets or
+            'AnswerEnd' not in offsets or
+            'PlayerScore' not in offsets
+        ):
+        raise Exception("'offsets' is invalid! Missing one or more offset specifications. Please examine 'main' for full definition")
+
+def PopulatePlayers(**kwargs):
+    from tkinter import ttk as ttk
+    for cont in range(len(kwargs['contestants'])):
+        playerCol = kwargs['offsets'].PlayerStart + cont
+        tk.Label(kwargs['master'], text=kwargs['contestants'][cont]).grid(column=playerCol, row=kwargs['offsets'].Names)
+        for resp in range(len(kwargs['answers'])):
+            # Create checkbox , set to empty as default
+            chk = ttk.Checkbutton(kwargs['master'])
+            chk.state(['!alternate'])
+            chk.state(['!selected'])
+            chk.grid(column=playerCol,row = kwargs['offsets'].AnswerBegin + resp)
+        # Add score box for this player
+        tk.Label(kwargs['master'], text="0").grid(column=playerCol, row = kwargs['offsets'].PlayerScore)
+
+def PopulateSubmitButtons(**kwargs):
+    # Defines the Callback for when a "submit" button is pressed. Adds the points to the players score
+    # Side note on useage - .grid_slaves returns a list of all matching values
+    #  BugBug: Area of improvement would be to have a singular call to get row, and then parse through that
+    def Submit(row):
+        questionScoreBox = kwargs['master'].grid_slaves(row, kwargs['offsets'].DisplayCount)
+        questionScore = int(questionScoreBox[0]['text'])
+        answerProvided = False
+        for col in range(len(kwargs['contestants'])):
+            contestant = col + kwargs['offsets'].PlayerStart
+            chkbox = kwargs['master'].grid_slaves(row, contestant)
+            if(chkbox[0].state()):
+                answerProvided = True
+                scorebox = kwargs['master'].grid_slaves(kwargs['offsets'].PlayerScore, contestant)
+                oldscore = int(scorebox[0]['text'])
+                newScore = oldscore + questionScore
+                scorebox[0]['text'] = str(newScore)
+            # Disable check boxes
+            chkbox[0].state(['disabled'])
+        # Avoid accidental button presses disabling button
+        if answerProvided is not True:
+            for col in range(len(kwargs['contestants'])):
+                contestant = col + kwargs['offsets'].PlayerStart
+                chkbox = kwargs['master'].grid_slaves(row, contestant)
+                chkbox[0].state(['!disabled'])
+        else:
+            # Also Disable "Submit score" button
+            submitBut = kwargs['master'].grid_slaves(row, kwargs['offsets'].SubmitButton)
+            submitBut[0]['state'] = 'disabled'
+            
+    # Add submit buttons. These are used when a contestant says a response that's already on the board
+    for resp in range(len(kwargs['answers'])):
+        rw = resp + kwargs['offsets'].AnswerBegin
+        but = tk.Button(kwargs['master'], text="Submit scoring")
+        but['command'] = lambda rw=rw: Submit(rw)
+        but.grid(column= kwargs['offsets'].SubmitButton, row=rw)
+
+
+def PopulateWindow(**kwargs):
+    # Validate/provide shorthand for args
+    ValidateWindowArgs(**kwargs)
+    master      =   kwargs['master']
+    question    =   kwargs['question']
+    contestants =   kwargs['contestants']
+    answers     =   kwargs['answers']
+    offsets     =   kwargs['offsets']
+    
+    # Populate the question that contestants are working with
+    tk.Label(master, text=question, font=("Times",15)).grid(row=offsets.Question, columnspan=10)
+    tk.Label(master, text="#").grid(row=offsets.Names, column = offsets.DisplayCount)
+    tk.Label(master, text='response').grid(row = offsets.Names, column = offsets.DisplayAnswer)
+    
+    # Populate the survey answers so that Game Master knows which ones are available
+    for resp in range(len(answers)):
+        tk.Label(master, text=answers[resp][1]).grid(column=offsets.DisplayCount,row = offsets.AnswerBegin + resp)
+        tk.Label(master, text=answers[resp][0]).grid(column=offsets.DisplayAnswer,row = offsets.AnswerBegin + resp)
+        
+     # Populate the playerbase
+    PopulatePlayers(**kwargs)
+    
+    # Populate Submit fields
+    tk.Label(master, text="(SUBMIT)").grid(column= offsets.SubmitButton, row = offsets.Names)
+    PopulateSubmitButtons(**kwargs)
+    
 
 def main(**kwargs):
     questionParam = 'question'
@@ -24,58 +129,36 @@ def main(**kwargs):
     
     # Offset table to avoid magic numbers
     offsets = DotMap()
-    offsets.SubmitButton = 2 + len(g_contestants)
+    # x offsets ( 0 == L, (max) == R)
     offsets.DisplayCount = 0
     offsets.DisplayAnswer = 1
+    offsets.PlayerStart = 2
+    offsets.PlayerEnd = offsets.PlayerStart + len(g_contestants) - 1
+    offsets.SubmitButton = offsets.PlayerEnd + 1
+    # y offsets (0 == Top, (max) == bototm)
+    offsets.RoundMultiplier = 0
+    offsets.Question = 1
+    offsets.Names = 2
+    offsets.AnswerBegin = 3
+    offsets.AnswerEnd = offsets.AnswerBegin + len(g_answers) - 1
+    offsets.PlayerScore = offsets.AnswerEnd + 1
 
     master = tk.Tk()
-    # Populate the question that contestants are working with
-    quest = tk.Label(master, text=g_question, font=("Times",15)).grid(row=1, columnspan=10)
-    # Populate the survey answers so that Game Master knows which ones are available
-    for resp in range(len(g_answers)):
-        tk.Label(master, text=g_answers[resp][1]).grid(column=0,row=2+resp)
-        tk.Label(master, text=g_answers[resp][0]).grid(column=1,row=2+resp)
+    PopulateWindow(master=master, offsets=offsets, question=g_question, answers=g_answers, contestants=g_contestants)
+     
+    def DISABLE(button):
+        button["state"] = "disabled"
+    
+    if len(g_contestants) is 2:
+        # Traditional FF! This means we should keep track of incorrect answers :)
+        for i in range(3):
+            but = tk.Button(master, text='Incorrect guess')
+            but['command'] = lambda b=but: DISABLE(b)
+            but.grid(column = offsets.SubmitButton + 1, row=offsets.AnswerBegin + 2*i, rowspan=2)
 
-    # Populate the playerbase
-    for cont in range(len(g_contestants)):
-        playerCol = 2 + cont
-        tk.Label(master, text=g_contestants[cont]).grid(column=playerCol, row=0)
-        for resp in range(len(g_answers)):
-            chk = ttk.Checkbutton(master)
-            chk.state(['!alternate'])
-            chk.state(['!selected'])
-            chk.grid(column=playerCol,row = 2+resp)
-        # Add score box for this player
-        tk.Label(master, text="0").grid(column=playerCol, row=len(g_answers) + 2)
-
-    tk.Label(master, text="(SUBMIT)").grid(column= 3 + len(g_contestants), row = 0)
-    # Defines the Callback for when a "submit" button is pressed. Adds the points to the players score
-    def Submit(row):
-        questionScoreBox = master.grid_slaves(row, 0)
-        questionScore = int(questionScoreBox[0]['text'])
-        for col in range(len(g_contestants)):
-            contestant = col + 2
-            chkbox = master.grid_slaves(row, contestant)
-            if(chkbox[0].state()):
-                print("Contestant " + str(contestant) + " Should gain " + str(questionScore) + " points")
-                scorebox = master.grid_slaves(len(g_answers) + 2, contestant)
-                oldscore = int(scorebox[0]['text'])
-                newScore = oldscore + questionScore
-                print("New score: " + str(newScore))
-                scorebox[0]['text'] = str(newScore)
-            # Disable check boxes
-            chkbox[0].state(['disabled'])
-        # Disable "Submit score" button
-        submitBut = master.grid_slaves(row, len(g_contestants) + 3)
-        submitBut[0]['state'] = 'disabled'
-            
-    # Add submit buttons. These are used when a contestant says a response that's already on the board
-    for resp in range(len(g_answers)):
-        rw = resp + 2
-        but = tk.Button(master, text="Submit scoring")
-        but['command'] = lambda rw=rw: Submit(rw)
-        but.grid(column= 3 + len(g_contestants), row=rw)
-
+    but = tk.Button(master, text = 'Next Round')
+    # but['command'] = lambda nextround()
+    but.grid(columnspan=10, row = offsets.PlayerScore + 1)
     tk.mainloop()
 
 if __name__ == "__main__":
