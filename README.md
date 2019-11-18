@@ -8,11 +8,9 @@ This is most definitely *not* a free open-sourced program that allows one to pla
 *) Game window should be tied into GM Window such that all values are reflected and 
     updated in real time
 *) Should scrape more questions for the database
+*) Remove g_obj from GameMasterWindow :D Since you can update the entire window by destroying it and then just repopulating it, "Next" can pass the object it was given to PopulateWindow,
+    and just immediately start the whole process over again
 
 # To test
 *) new q/a from cli params
 *) import db file from cli params
-
-
-# Known bugs
-*) Something with the "next round" button causes an issue if the next round has fewer answers than the previous. Should be easy enough to find & fix

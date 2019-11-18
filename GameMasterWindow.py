@@ -219,39 +219,23 @@ def PopulateWindow(**kwargs):
         multLabel = g_obj['master'].grid_slaves(row = g_obj['offsets'].RoundMultiplier, column = 0)[0]
         prevRound = int(re.findall('\d+', multLabel['text'])[0])
         g_obj['round'] = str(prevRound + 1)
-        multLabel['text'] = "Round multiplier: " + g_obj['round']
         for i in range(PLAYER_COUNT):
             label = g_obj['master'].grid_slaves(row = g_obj['offsets'].PlayerScore, column = g_obj['offsets'].PlayerStart + i)[0]
             contestantScores.append(label['text'])
-            label.destroy()
         # Get new round content
         newQ, newA = GetQuestionAndAnswers(**g_obj)
         print('Round: ' + g_obj['round'] + ' question; "' + newQ + '"\n\tResponses: ' + str(newA))
-        # Clean up previous round answers and submit buttons
-        for i in range(1 + g_obj['offsets'].AnswerEnd - g_obj['offsets'].AnswerBegin):
-            aRow = g_obj['master'].grid_slaves( row = g_obj['offsets'].AnswerBegin + i)
-            for j in range(len(aRow)):
-                # grid_forget is the more common way to do this, but actually causes a memory leak as the object iself still exists
-                #  But now it exists where it can't be indexed( since it's off the grid) and we can't do anything with it as a result
-                if j >= g_obj['offsets'].PlayerStart and j <= g_obj['offsets'].SubmitButton:
-                    aRow[j].destroy()
+        # Clean up previous window
+        for label in g_obj['master'].grid_slaves():
+            label.destroy()
         # Update g_obj contents
         g_obj['answers'] = newA
         g_obj['offsets'].AnswerEnd = g_obj['offsets'].AnswerBegin + len(newA)
         g_obj['question'] = newQ
-        nextBut = g_obj['master'].grid_slaves(row = g_obj['offsets'].PlayerScore + 1)[0]
         g_obj['offsets'].PlayerScore = g_obj['offsets'].AnswerEnd + 1
         g_obj['offsets'].RoundMultiplier = g_obj['offsets'].PlayerScore
         
-        # Update static fields location & contents
-        questLabel = g_obj['master'].grid_slaves(row = g_obj['offsets'].Question)[0]
-        questLabel['text'] = newQ
-        nextBut.grid(columnspan = 10, row = offsets.PlayerScore + 1)
-        multLabel.grid(row = g_obj['offsets'].RoundMultiplier, column = 0)
-        
-        PopulateAnswers(**g_obj)
-        PopulatePlayers(**g_obj)
-        PopulateSubmitButtons(**g_obj)
+        PopulateWindow(**g_obj)
         # restore value of scores
         for i in range(PLAYER_COUNT):
             label = g_obj['master'].grid_slaves(row = g_obj['offsets'].PlayerScore, column = g_obj['offsets'].PlayerStart + i)[0]
